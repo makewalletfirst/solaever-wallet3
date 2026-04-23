@@ -8,6 +8,7 @@ import CreateWallet from './src/screens/CreateWallet';
 import RestoreWallet from './src/screens/RestoreWallet';
 import HomeScreen from './src/screens/HomeScreen';
 import SendScreen from './src/screens/SendScreen';
+import TxHistoryScreen from './src/screens/TxHistoryScreen';
 import { loadMnemonic } from './src/lib/keystore';
 
 type RootStackParamList = {
@@ -16,6 +17,7 @@ type RootStackParamList = {
   RestoreWallet: undefined;
   Home: { mnemonic: string };
   Send: { mnemonic: string };
+  TxHistory: { address: string };
 };
 
 const Stack = createStackNavigator<RootStackParamList>();
@@ -61,6 +63,7 @@ export default function App() {
         <Stack.Screen name="RestoreWallet" component={RestoreWallet} />
         <Stack.Screen name="Home" component={HomeScreen} initialParams={initialMnemonic ? { mnemonic: initialMnemonic } : undefined} />
         <Stack.Screen name="Send" component={SendScreen} />
+        <Stack.Screen name="TxHistory" component={TxHistoryScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );
