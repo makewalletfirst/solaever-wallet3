@@ -7,11 +7,16 @@ import { saveWallet } from '../lib/keystore';
 export default function CreateWallet({ navigation }: any) {
   const [mnemonic, setMnemonic] = useState('');
   const [walletName, setWalletName] = useState('');
+  const [password, setPassword] = useState('');
   const [step, setStep] = useState(1);
 
-  const generateNewWallet = () => {
-    if (!walletName.trim()) {
-      Alert.alert('Error', '지갑 이름을 입력해 주세요.');
+  const goToMnemonic = () => {
+    if (!walletName.trim() || !password.trim()) {
+      Alert.alert('Error', '지갑 이름과 비밀번호를 모두 입력해 주세요.');
+      return;
+    }
+    if (password.length < 4 || password.length > 16) {
+      Alert.alert('Error', '비밀번호는 4자에서 16자 사이여야 합니다.');
       return;
     }
     const mn = bip39.generateMnemonic();
@@ -27,7 +32,8 @@ export default function CreateWallet({ navigation }: any) {
       await saveWallet({
         name: walletName,
         mnemonic: mnemonic,
-        address: address
+        address: address,
+        password: password
       });
 
       Alert.alert('Success', '지갑이 생성되었습니다.', [
@@ -51,7 +57,17 @@ export default function CreateWallet({ navigation }: any) {
             value={walletName} 
             onChangeText={setWalletName}
           />
-          <TouchableOpacity style={styles.button} onPress={generateNewWallet}>
+
+          <Text style={styles.label}>지갑 비밀번호 설정</Text>
+          <TextInput 
+            style={styles.input} 
+            placeholder="4~16자리 입력" 
+            secureTextEntry
+            value={password} 
+            onChangeText={setPassword}
+          />
+
+          <TouchableOpacity style={styles.button} onPress={goToMnemonic}>
             <Text style={styles.buttonText}>Generate Mnemonic</Text>
           </TouchableOpacity>
         </View>

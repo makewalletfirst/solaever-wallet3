@@ -14,7 +14,6 @@ export default function TxHistoryScreen({ navigation, route }: any) {
 
   const fetchHistory = useCallback(async () => {
     try {
-      // 1. 서버에서 데이터 가져오기 (최근 20개)
       const pubkey = new PublicKey(address);
       const signatures = await connection.getSignaturesForAddress(pubkey, { limit: 20 });
       
@@ -26,19 +25,16 @@ export default function TxHistoryScreen({ navigation, route }: any) {
         status: sig.confirmationStatus
       }));
 
-      // 2. 로컬 캐시와 머지 (중복 제거)
       const localKey = `history_v2_${address}`;
       const localData = await AsyncStorage.getItem(localKey);
       const localHistory = localData ? JSON.parse(localData) : [];
       
-      // 시그니처 기준으로 서버에 없는 로컬 데이터(아직 인덱싱 안된 것들) 유지
       const serverSigs = new Set(serverHistory.map(s => s.signature));
       const filteredLocal = localHistory.filter((l: any) => !serverSigs.has(l.signature));
       
       const combined = [...filteredLocal, ...serverHistory].sort((a, b) => (b.blockTime || 0) - (a.blockTime || 0));
       
       setHistory(combined);
-      // 머지된 데이터 영구 저장
       await AsyncStorage.setItem(localKey, JSON.stringify(combined.slice(0, 50)));
     } catch (error) {
       console.error(error);
@@ -56,7 +52,7 @@ export default function TxHistoryScreen({ navigation, route }: any) {
   };
 
   const openExplorer = (sig: string) => {
-    WebBrowser.openBrowserAsync(`https://explorer.solana.com/tx/${sig}?cluster=mainnet-beta`);
+    WebBrowser.openBrowserAsync(`https://solaever.ever-chain.xyz/tx/${sig}`);
   };
 
   const renderItem = ({ item }: any) => {
@@ -102,7 +98,12 @@ export default function TxHistoryScreen({ navigation, route }: any) {
       )}
 
       {/* Tx Detail Modal */}
-      <Modal visible={!!selectedTx} transparent animationType="slide">
+      <Modal 
+        visible={!!selectedTx} 
+        transparent 
+        animationType="slide"
+        onRequestClose={() => setSelectedTx(null)}
+      >
         <View style={styles.modalBg}>
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>Transaction Detail</Text>

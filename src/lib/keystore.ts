@@ -7,11 +7,11 @@ export interface WalletInfo {
   name: string;
   mnemonic: string;
   address: string;
+  password?: string; // 생체인식 불가능 시 사용할 비밀번호
 }
 
 export async function saveWallet(wallet: WalletInfo) {
   const wallets = await loadWallets();
-  // 중복 체크 (주소 기준)
   const exists = wallets.findIndex(w => w.address === wallet.address);
   if (exists >= 0) {
     wallets[exists] = wallet;
@@ -19,7 +19,6 @@ export async function saveWallet(wallet: WalletInfo) {
     wallets.push(wallet);
   }
   await SecureStore.setItemAsync(WALLETS_KEY, JSON.stringify(wallets));
-  // 새로 추가/수정한 지갑을 현재 지갑으로 설정
   await setCurrentWallet(wallet.address);
 }
 
@@ -54,7 +53,6 @@ export async function getCurrentWallet(): Promise<WalletInfo | null> {
   return wallets.find(w => w.address === address) || null;
 }
 
-// 하위 호환성을 위한 기존 함수 유지 (필요시)
 export async function loadMnemonic(): Promise<string | null> {
   const current = await getCurrentWallet();
   return current ? current.mnemonic : null;

@@ -7,10 +7,15 @@ import { saveWallet } from '../lib/keystore';
 export default function RestoreWallet({ navigation }: any) {
   const [mnemonic, setMnemonic] = useState('');
   const [walletName, setWalletName] = useState('');
+  const [password, setPassword] = useState('');
 
   const handleRestore = async () => {
-    if (!walletName.trim()) {
-      Alert.alert('Error', '지갑 이름을 입력해 주세요.');
+    if (!walletName.trim() || !password.trim()) {
+      Alert.alert('Error', '지갑 이름과 비밀번호를 모두 입력해 주세요.');
+      return;
+    }
+    if (password.length < 4 || password.length > 16) {
+      Alert.alert('Error', '비밀번호는 4자에서 16자 사이여야 합니다.');
       return;
     }
     if (!bip39.validateMnemonic(mnemonic.trim())) {
@@ -25,7 +30,8 @@ export default function RestoreWallet({ navigation }: any) {
       await saveWallet({
         name: walletName,
         mnemonic: mnemonic.trim(),
-        address: address
+        address: address,
+        password: password
       });
 
       Alert.alert('Success', '지갑이 복구되었습니다.', [
@@ -46,6 +52,15 @@ export default function RestoreWallet({ navigation }: any) {
         placeholder="예: My Old Wallet" 
         value={walletName} 
         onChangeText={setWalletName}
+      />
+
+      <Text style={styles.label}>지갑 비밀번호 설정</Text>
+      <TextInput 
+        style={styles.input} 
+        placeholder="4~16자리 입력" 
+        secureTextEntry
+        value={password} 
+        onChangeText={setPassword}
       />
 
       <Text style={styles.label}>니모닉 코드 입력 (12 or 24 words)</Text>
