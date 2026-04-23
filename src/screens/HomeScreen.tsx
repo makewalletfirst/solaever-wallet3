@@ -1,6 +1,7 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, RefreshControl, ScrollView, Alert, Clipboard, TextInput, Modal } from 'react-native';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, RefreshControl, ScrollView, Alert, Clipboard, TextInput, Modal, Image } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as WebBrowser from 'expo-web-browser';
 import { keypairFromMnemonic } from '../lib/wallet';
 import { getBalance } from '../lib/transfer';
 import { getTokenBalance } from '../lib/token';
@@ -73,7 +74,7 @@ export default function HomeScreen({ navigation, route }: any) {
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
     >
       <View style={styles.header}>
-        <Text style={styles.title}>SolaEver Wallet</Text>
+        <Text style={styles.title}>SolaEver</Text>
         <TouchableOpacity onPress={() => navigation.replace('Welcome')}>
           <Text style={styles.logoutText}>Logout</Text>
         </TouchableOpacity>
@@ -81,7 +82,10 @@ export default function HomeScreen({ navigation, route }: any) {
 
       <View style={styles.card}>
         <Text style={styles.label}>NATIVE BALANCE</Text>
-        <Text style={styles.balance}>{balance !== null ? `${balance.toLocaleString()} SLE` : '---'}</Text>
+        <View style={styles.balanceRow}>
+          <Image source={require('../../assets/solaever_token.png')} style={styles.tokenLogo} />
+          <Text style={styles.balance}>{balance !== null ? `${balance.toLocaleString()} SLE` : '---'}</Text>
+        </View>
         <View style={styles.addressRow}>
           <Text style={styles.address} numberOfLines={1} ellipsizeMode="middle">{address}</Text>
           <TouchableOpacity onPress={copyToClipboard} style={styles.copyBtn}>
@@ -131,9 +135,11 @@ const styles = StyleSheet.create({
   title: { fontSize: 24, fontWeight: 'bold' },
   logoutText: { color: '#ff3b30' },
   card: { backgroundColor: '#34c759', borderRadius: 20, padding: 25, marginBottom: 30, elevation: 5 },
-  label: { fontSize: 12, color: 'rgba(255,255,255,0.7)', marginBottom: 5 },
-  balance: { fontSize: 32, fontWeight: 'bold', color: '#fff', marginBottom: 10 },
-  addressRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  label: { fontSize: 12, color: 'rgba(255,255,255,0.7)', marginBottom: 10 },
+  balanceRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 15 },
+  tokenLogo: { width: 32, height: 32, marginRight: 10, borderRadius: 16 },
+  balance: { fontSize: 32, fontWeight: 'bold', color: '#fff' },
+  addressRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.2)', paddingTop: 15 },
   address: { flex: 1, fontSize: 12, color: 'rgba(255,255,255,0.8)', fontFamily: 'monospace', marginRight: 10 },
   copyBtn: { backgroundColor: 'rgba(255,255,255,0.2)', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 5 },
   copyBtnText: { color: '#fff', fontSize: 12, fontWeight: 'bold' },
