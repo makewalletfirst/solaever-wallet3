@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, Linking, RefreshControl, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, RefreshControl, ActivityIndicator, Alert } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as WebBrowser from 'expo-web-browser';
 import { getTransactionHistory } from '../lib/transfer';
 
 export default function TxHistoryScreen({ route }: any) {
@@ -10,7 +11,6 @@ export default function TxHistoryScreen({ route }: any) {
   const [refreshing, setRefreshing] = useState(false);
   const isMounted = useRef(true);
 
-  // 1. 저장소에서 즉시 데이터 불러오기
   const loadLocalFirst = async () => {
     try {
       const saved = await AsyncStorage.getItem(`history_v2_${address}`);
@@ -20,16 +20,13 @@ export default function TxHistoryScreen({ route }: any) {
     } catch (e) { console.error(e); }
   };
 
-  // 2. 서버 데이터 동기화 (백그라운드)
   const syncWithServer = useCallback(async (showIndicator = false) => {
     if (showIndicator) setLoading(true);
-    
     try {
       const remoteData = await getTransactionHistory(address);
       const saved = await AsyncStorage.getItem(`history_v2_${address}`);
       const cached = saved ? JSON.parse(saved) : [];
 
-      // 머지: 로컬 내역 + 서버 내역 (중복 제거)
       const uniqueMap = new Map();
       [...cached, ...remoteData].forEach(item => {
         if (item.signature && !uniqueMap.has(item.signature)) {
@@ -57,16 +54,19 @@ export default function TxHistoryScreen({ route }: any) {
 
   useEffect(() => {
     isMounted.current = true;
-    const init = async () => {
-      await loadLocalFirst(); // 0.1초 만에 로컬 데이터 표시
-      syncWithServer();       // 조용히 서버와 대조
-    };
-    init();
+    loadLocalFirst();
+    syncWithServer();
     return () => { isMounted.current = false; };
   }, [syncWithServer]);
 
+  // 앱 내 브라우저로 열기
+  const openInAppBrowser = async (signature: string) => {
+    const url = `https://solaever.ever-chain.xyz/tx/${signature}`;
+    await WebBrowser.openBrowserAsync(url);
+  };
+
   const renderItem = ({ item }: { item: any }) => (
-    <TouchableOpacity style={styles.item} onPress={() => Linking.openURL(`https://solaever.ever-chain.xyz/tx/${item.signature}`)}>
+    <TouchableOpacity style={styles.item} onPress={() => openInAppBrowser(item.signature)}>
       <View style={styles.itemHeader}>
         <Text style={[styles.status, { color: item.err ? '#ff3b30' : '#34c759' }]}>
           {item.err ? 'Failed' : (item.isLocal ? 'Sent (Local)' : 'Confirmed')}
@@ -107,6 +107,6 @@ const styles = StyleSheet.create({
   date: { fontSize: 11, color: '#8e8e93' },
   signature: { fontSize: 13, color: '#3a3a3c', fontFamily: 'monospace', marginBottom: 5 },
   memo: { fontSize: 14, color: '#007AFF', fontWeight: '600', marginBottom: 5 },
-  explorerLink: { fontSize: 11, color: '#8e8e93', textAlign: 'right', textDecorationLine: 'underline' },
+  explorerLink: { fontSize: 13, color: '#34c759', fontWeight: 'bold', textAlign: 'right', textDecorationLine: 'underline' },
   empty: { textAlign: 'center', marginTop: 50, color: '#8e8e93' }
 });
