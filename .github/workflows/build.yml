@@ -20,15 +20,15 @@ jobs:
           distribution: 'zulu'
 
       - name: Install Dependencies
-        run: npm install --no-audit --no-fund
+        run: npm install --legacy-peer-deps --no-audit --no-fund
 
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
-      - name: Generate Bundle
+      - name: Generate JS Bundle
         run: |
           mkdir -p android/app/src/main/assets
-          npx react-native bundle --platform android --dev false --entry-file index.ts --bundle-output android/app/src/main/assets/index.android.bundle --assets-dest android/app/src/main/res
+          npx expo export:embed --platform android --dev false --bundle-output android/app/src/main/assets/index.android.bundle --assets-dest android/app/src/main/res
 
       - name: Build Debug APK
         run: |
