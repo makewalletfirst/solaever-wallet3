@@ -6,6 +6,9 @@ import { keypairFromMnemonic } from '../lib/wallet';
 import { getBalance } from '../lib/transfer';
 import { getTokenBalance } from '../lib/token';
 
+// 앱 로고와 동일한 이미지를 사용
+const SOLAEVER_MAIN_LOGO = require('../../assets/icon.png');
+
 export default function HomeScreen({ navigation, route }: any) {
   const { mnemonic } = route.params;
   const [address, setAddress] = useState('');
@@ -78,7 +81,7 @@ export default function HomeScreen({ navigation, route }: any) {
         <View style={styles.balanceRow}>
           <View style={styles.tokenLogoContainer}>
             <Image 
-              source={require('../../assets/solaever_token.png')} 
+              source={SOLAEVER_MAIN_LOGO} 
               style={styles.tokenLogo}
               resizeMode="contain"
             />
@@ -114,7 +117,6 @@ export default function HomeScreen({ navigation, route }: any) {
         </TouchableOpacity>
       </View>
 
-      {/* 니모닉 확인 모달 (div -> View로 수정) */}
       <Modal visible={isMnemonicVisible} transparent animationType="fade">
         <View style={styles.modalBg}>
           <View style={styles.modalContent}>
@@ -168,8 +170,8 @@ const styles = StyleSheet.create({
   card: { backgroundColor: '#34c759', borderRadius: 20, padding: 25, marginBottom: 30, elevation: 5 },
   label: { fontSize: 12, color: 'rgba(255,255,255,0.7)', marginBottom: 15 },
   balanceRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 20 },
-  tokenLogoContainer: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#fff', justifyContent: 'center', alignItems: 'center', marginRight: 12, overflow: 'hidden', padding: 2 },
-  tokenLogo: { width: '100%', height: '100%' },
+  tokenLogoContainer: { width: 44, height: 44, borderRadius: 22, backgroundColor: '#fff', justifyContent: 'center', alignItems: 'center', marginRight: 12, overflow: 'hidden' },
+  tokenLogo: { width: 32, height: 32 },
   balance: { fontSize: 32, fontWeight: 'bold', color: '#fff' },
   addressRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.2)', paddingTop: 15 },
   address: { flex: 1, fontSize: 12, color: 'rgba(255,255,255,0.8)', fontFamily: 'monospace', marginRight: 10 },
