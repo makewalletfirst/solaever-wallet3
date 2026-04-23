@@ -1,112 +1,176 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, RefreshControl, ActivityIndicator, Alert } from 'react-native';
+import React, { useState, useEffect, useCallback } from 'react';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, RefreshControl, ActivityIndicator, Modal, Linking, Clipboard, Alert } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import * as WebBrowser from 'expo-web-browser';
-import { getTransactionHistory } from '../lib/transfer';
+import { connection } from '../lib/connection';
+import { PublicKey } from '@solana/web3.js';
 
-export default function TxHistoryScreen({ route }: any) {
+export default function TxHistoryScreen({ navigation, route }: any) {
   const { address } = route.params;
   const [history, setHistory] = useState<any[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const isMounted = useRef(true);
+  const [selectedTx, setSelectedTx] = useState<any>(null);
 
-  const loadLocalFirst = async () => {
+  const fetchHistory = useCallback(async () => {
     try {
-      const saved = await AsyncStorage.getItem(`history_v2_${address}`);
-      if (saved && isMounted.current) {
-        setHistory(JSON.parse(saved));
-      }
-    } catch (e) { console.error(e); }
-  };
+      // 1. 서버에서 데이터 가져오기 (최근 20개)
+      const pubkey = new PublicKey(address);
+      const signatures = await connection.getSignaturesForAddress(pubkey, { limit: 20 });
+      
+      const serverHistory = signatures.map(sig => ({
+        signature: sig.signature,
+        blockTime: sig.blockTime,
+        err: sig.err,
+        memo: sig.memo,
+        status: sig.confirmationStatus
+      }));
 
-  const syncWithServer = useCallback(async (showIndicator = false) => {
-    if (showIndicator) setLoading(true);
-    try {
-      const remoteData = await getTransactionHistory(address);
-      const saved = await AsyncStorage.getItem(`history_v2_${address}`);
-      const cached = saved ? JSON.parse(saved) : [];
-
-      const uniqueMap = new Map();
-      [...cached, ...remoteData].forEach(item => {
-        if (item.signature && !uniqueMap.has(item.signature)) {
-          uniqueMap.set(item.signature, item);
-        }
-      });
-
-      const finalData = Array.from(uniqueMap.values())
-        .sort((a, b) => (b.blockTime || 0) - (a.blockTime || 0))
-        .slice(0, 50);
-
-      if (isMounted.current) {
-        setHistory(finalData);
-        await AsyncStorage.setItem(`history_v2_${address}`, JSON.stringify(finalData));
-      }
-    } catch (e) {
-      console.warn("Sync failed", e);
+      // 2. 로컬 캐시와 머지 (중복 제거)
+      const localKey = `history_v2_${address}`;
+      const localData = await AsyncStorage.getItem(localKey);
+      const localHistory = localData ? JSON.parse(localData) : [];
+      
+      // 시그니처 기준으로 서버에 없는 로컬 데이터(아직 인덱싱 안된 것들) 유지
+      const serverSigs = new Set(serverHistory.map(s => s.signature));
+      const filteredLocal = localHistory.filter((l: any) => !serverSigs.has(l.signature));
+      
+      const combined = [...filteredLocal, ...serverHistory].sort((a, b) => (b.blockTime || 0) - (a.blockTime || 0));
+      
+      setHistory(combined);
+      // 머지된 데이터 영구 저장
+      await AsyncStorage.setItem(localKey, JSON.stringify(combined.slice(0, 50)));
+    } catch (error) {
+      console.error(error);
     } finally {
-      if (isMounted.current) {
-        setLoading(false);
-        setRefreshing(false);
-      }
+      setLoading(false);
+      setRefreshing(false);
     }
   }, [address]);
 
-  useEffect(() => {
-    isMounted.current = true;
-    loadLocalFirst();
-    syncWithServer();
-    return () => { isMounted.current = false; };
-  }, [syncWithServer]);
+  useEffect(() => { fetchHistory(); }, [fetchHistory]);
 
-  // 앱 내 브라우저로 열기
-  const openInAppBrowser = async (signature: string) => {
-    const url = `https://solaever.ever-chain.xyz/tx/${signature}`;
-    await WebBrowser.openBrowserAsync(url);
+  const onRefresh = () => {
+    setRefreshing(true);
+    fetchHistory();
   };
 
-  const renderItem = ({ item }: { item: any }) => (
-    <TouchableOpacity style={styles.item} onPress={() => openInAppBrowser(item.signature)}>
-      <View style={styles.itemHeader}>
-        <Text style={[styles.status, { color: item.err ? '#ff3b30' : '#34c759' }]}>
-          {item.err ? 'Failed' : (item.isLocal ? 'Sent (Local)' : 'Confirmed')}
-        </Text>
-        <Text style={styles.date}>{item.blockTime ? new Date(item.blockTime * 1000).toLocaleString() : 'Pending'}</Text>
-      </View>
-      <Text style={styles.signature} numberOfLines={1} ellipsizeMode="middle">{item.signature}</Text>
-      {item.memo && <Text style={styles.memo}>{item.memo}</Text>}
-      <Text style={styles.explorerLink}>View in Explorer →</Text>
-    </TouchableOpacity>
-  );
+  const openExplorer = (sig: string) => {
+    Linking.openURL(`https://explorer.solana.com/tx/${sig}?cluster=mainnet-beta`);
+  };
+
+  const renderItem = ({ item }: any) => {
+    const date = item.blockTime ? new Date(item.blockTime * 1000).toLocaleString() : 'Pending...';
+    const isError = !!item.err;
+
+    return (
+      <TouchableOpacity style={styles.txItem} onPress={() => setSelectedTx(item)}>
+        <View style={styles.txMain}>
+          <Text style={styles.txSig} numberOfLines={1}>{item.signature}</Text>
+          <Text style={styles.txDate}>{date}</Text>
+        </View>
+        <View style={styles.txStatus}>
+          <Text style={[styles.statusBadge, isError ? styles.error : styles.success]}>
+            {isError ? 'Failed' : (item.isLocal ? 'Pending' : 'Success')}
+          </Text>
+        </View>
+      </TouchableOpacity>
+    );
+  };
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Transaction History</Text>
-      {loading && history.length === 0 ? (
-        <View style={styles.center}><ActivityIndicator size="large" color="#007AFF" /></View>
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => navigation.goBack()}>
+          <Text style={styles.backBtn}>← Back</Text>
+        </TouchableOpacity>
+        <Text style={styles.title}>History</Text>
+        <View style={{ width: 50 }} />
+      </View>
+
+      {loading ? (
+        <ActivityIndicator size="large" color="#34c759" style={{ marginTop: 50 }} />
       ) : (
         <FlatList
           data={history}
-          renderItem={renderItem}
           keyExtractor={(item) => item.signature}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); syncWithServer(true); }} />}
-          ListEmptyComponent={<Text style={styles.empty}>No transactions found.</Text>}
+          renderItem={renderItem}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+          ListEmptyComponent={<Text style={styles.emptyText}>거래 내역이 없습니다.</Text>}
+          contentContainerStyle={{ padding: 20 }}
         />
       )}
+
+      {/* Tx Detail Modal */}
+      <Modal visible={!!selectedTx} transparent animationType="slide">
+        <View style={styles.modalBg}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Transaction Detail</Text>
+            
+            <View style={styles.detailRow}>
+              <Text style={styles.detailLabel}>Signature</Text>
+              <Text style={styles.detailValue}>{selectedTx?.signature}</Text>
+            </View>
+
+            <View style={styles.detailRow}>
+              <Text style={styles.detailLabel}>Status</Text>
+              <Text style={[styles.detailValue, selectedTx?.err ? {color: 'red'} : {color: 'green'}]}>
+                {selectedTx?.err ? 'Failed' : 'Success'}
+              </Text>
+            </View>
+
+            <View style={styles.detailRow}>
+              <Text style={styles.detailLabel}>Time</Text>
+              <Text style={styles.detailValue}>
+                {selectedTx?.blockTime ? new Date(selectedTx.blockTime * 1000).toLocaleString() : '-'}
+              </Text>
+            </View>
+
+            {selectedTx?.memo && (
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>Memo</Text>
+                <Text style={styles.detailValue}>{selectedTx.memo}</Text>
+              </View>
+            )}
+
+            <TouchableOpacity 
+              style={styles.explorerBtn} 
+              onPress={() => openExplorer(selectedTx.signature)}
+            >
+              <Text style={styles.explorerBtnText}>View on Explorer</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.closeBtn} onPress={() => setSelectedTx(null)}>
+              <Text style={styles.closeBtnText}>Close</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f8f9fa', padding: 20 },
-  center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  title: { fontSize: 24, fontWeight: 'bold', marginTop: 40, marginBottom: 20 },
-  item: { backgroundColor: '#fff', borderRadius: 12, padding: 15, marginBottom: 15, elevation: 2 },
-  itemHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 },
-  status: { fontWeight: 'bold', fontSize: 13 },
-  date: { fontSize: 11, color: '#8e8e93' },
-  signature: { fontSize: 13, color: '#3a3a3c', fontFamily: 'monospace', marginBottom: 5 },
-  memo: { fontSize: 14, color: '#007AFF', fontWeight: '600', marginBottom: 5 },
-  explorerLink: { fontSize: 13, color: '#34c759', fontWeight: 'bold', textAlign: 'right', textDecorationLine: 'underline' },
-  empty: { textAlign: 'center', marginTop: 50, color: '#8e8e93' }
+  container: { flex: 1, backgroundColor: '#f8f9fa' },
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 20, paddingTop: 60, backgroundColor: '#fff' },
+  backBtn: { color: '#34c759', fontSize: 16, fontWeight: 'bold' },
+  title: { fontSize: 20, fontWeight: 'bold' },
+  txItem: { flexDirection: 'row', backgroundColor: '#fff', padding: 15, borderRadius: 12, marginBottom: 12, elevation: 2, alignItems: 'center' },
+  txMain: { flex: 1 },
+  txSig: { fontSize: 14, fontWeight: '600', color: '#333', marginBottom: 5 },
+  txDate: { fontSize: 12, color: '#999' },
+  txStatus: { marginLeft: 10 },
+  statusBadge: { fontSize: 10, fontWeight: 'bold', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 5, overflow: 'hidden' },
+  success: { backgroundColor: '#e8f5e9', color: '#34c759' },
+  error: { backgroundColor: '#fff2f2', color: '#ff3b30' },
+  emptyText: { textAlign: 'center', marginTop: 50, color: '#999' },
+  modalBg: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
+  modalContent: { backgroundColor: '#fff', borderTopLeftRadius: 30, borderTopRightRadius: 30, padding: 30, minHeight: 400 },
+  modalTitle: { fontSize: 22, fontWeight: 'bold', marginBottom: 25, textAlign: 'center' },
+  detailRow: { marginBottom: 20 },
+  detailLabel: { fontSize: 12, color: '#999', marginBottom: 5, fontWeight: 'bold' },
+  detailValue: { fontSize: 14, color: '#333', lineHeight: 20 },
+  explorerBtn: { backgroundColor: '#34c759', padding: 18, borderRadius: 15, alignItems: 'center', marginTop: 10 },
+  explorerBtnText: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
+  closeBtn: { padding: 20, alignItems: 'center' },
+  closeBtnText: { color: '#666', fontSize: 16 }
 });

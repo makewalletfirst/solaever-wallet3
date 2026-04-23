@@ -2,9 +2,12 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, RefreshControl, ScrollView, Alert, Clipboard, TextInput, Modal, Image } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as WebBrowser from 'expo-web-browser';
+import * as LocalAuthentication from 'expo-local-authentication';
+import QRCode from 'react-native-qrcode-svg';
 import { keypairFromMnemonic } from '../lib/wallet';
 import { getBalance } from '../lib/transfer';
-import { getTokenBalance } from '../lib/token';
+import { getTokenBalance, getTokenInfo } from '../lib/token';
+import { setCurrentWallet } from '../lib/keystore';
 
 // 네이티브 리소스 사용 (안드로이드 drawable 폴더에 직접 넣은 파일)
 const TOKEN_LOGO_NATIVE = { uri: 'token_logo' };
@@ -17,6 +20,7 @@ export default function HomeScreen({ navigation, route }: any) {
   const [refreshing, setRefreshing] = useState(false);
   const [isAddTokenModalVisible, setAddTokenModalVisible] = useState(false);
   const [isMnemonicVisible, setMnemonicVisible] = useState(false);
+  const [isReceiveModalVisible, setReceiveModalVisible] = useState(false);
   const [newTokenMint, setNewTokenMint] = useState('');
 
   const loadSavedTokens = async (ownerAddr: string) => {
@@ -51,6 +55,20 @@ export default function HomeScreen({ navigation, route }: any) {
     Alert.alert('성공', `${label}가 복사되었습니다.`);
   };
 
+  const handleViewMnemonic = async () => {
+    const result = await LocalAuthentication.authenticateAsync({
+      promptMessage: '니모닉 확인을 위해 인증이 필요합니다.',
+    });
+    if (result.success) {
+      setMnemonicVisible(true);
+    }
+  };
+
+  const handleLogout = async () => {
+    await setCurrentWallet(null);
+    navigation.replace('Welcome');
+  };
+
   const onRefresh = async () => {
     setRefreshing(true);
     await loadWallet();
@@ -75,10 +93,10 @@ export default function HomeScreen({ navigation, route }: any) {
           </View>
         </View>
         <View style={styles.headerRight}>
-          <TouchableOpacity onPress={() => setMnemonicVisible(true)} style={styles.mnemonicBtn}>
+          <TouchableOpacity onPress={handleViewMnemonic} style={styles.mnemonicBtn}>
             <Text style={styles.mnemonicBtnText}>View Mnemonic</Text>
           </TouchableOpacity>
-          <TouchableOpacity onPress={() => navigation.replace('Welcome')}>
+          <TouchableOpacity onPress={handleLogout}>
             <Text style={styles.logoutText}>Logout</Text>
           </TouchableOpacity>
         </View>
@@ -99,19 +117,25 @@ export default function HomeScreen({ navigation, route }: any) {
         </View>
         <View style={styles.addressRow}>
           <Text style={styles.address} numberOfLines={1} ellipsizeMode="middle">{address}</Text>
-          <TouchableOpacity onPress={() => copyToClipboard(address, "주소")} style={styles.copyBtn}>
-            <Text style={styles.copyBtnText}>Copy</Text>
+          <TouchableOpacity onPress={() => setReceiveModalVisible(true)} style={styles.copyBtn}>
+            <Text style={styles.copyBtnText}>Receive</Text>
           </TouchableOpacity>
         </View>
       </View>
 
       <Text style={styles.sectionTitle}>My Assets</Text>
-      {tokens.map((item, index) => (
-        <View key={index} style={styles.tokenItem}>
-          <Text style={styles.tokenMint}>{item.mint.slice(0, 8)}...{item.mint.slice(-8)}</Text>
-          <Text style={styles.tokenBalance}>{item.balance.toLocaleString()} TOKEN</Text>
-        </View>
-      ))}
+      {tokens.map((item, index) => {
+        const info = getTokenInfo(item.mint);
+        return (
+          <View key={index} style={styles.tokenItem}>
+            <View>
+              <Text style={styles.tokenSymbol}>{info.symbol}</Text>
+              <Text style={styles.tokenMint}>{item.mint.slice(0, 4)}...{item.mint.slice(-4)}</Text>
+            </View>
+            <Text style={styles.tokenBalance}>{item.balance.toLocaleString()} {info.symbol}</Text>
+          </View>
+        );
+      })}
 
       <TouchableOpacity style={styles.addBtn} onPress={() => setAddTokenModalVisible(true)}>
         <Text style={styles.addBtnText}>+ Add Token Mint</Text>
@@ -125,6 +149,25 @@ export default function HomeScreen({ navigation, route }: any) {
           <Text style={styles.historyButtonText}>Transaction History</Text>
         </TouchableOpacity>
       </View>
+
+      {/* Receive Modal with QR Code */}
+      <Modal visible={isReceiveModalVisible} transparent animationType="fade">
+        <View style={styles.modalBg}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Receive Assets</Text>
+            <View style={styles.qrContainer}>
+              <QRCode value={address} size={200} color="#333" backgroundColor="#fff" />
+            </View>
+            <Text style={styles.qrAddressText}>{address}</Text>
+            <TouchableOpacity style={styles.actionButton} onPress={() => copyToClipboard(address, "주소")}>
+              <Text style={styles.actionButtonText}>Copy Address</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.cancelBtn} onPress={() => setReceiveModalVisible(false)}>
+              <Text>Close</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
 
       {/* 모달 로직 (이전과 동일) */}
       <Modal visible={isMnemonicVisible} transparent animationType="fade">
@@ -191,7 +234,8 @@ const styles = StyleSheet.create({
   copyBtnText: { color: '#fff', fontSize: 12, fontWeight: 'bold' },
   sectionTitle: { fontSize: 18, fontWeight: 'bold', marginBottom: 15, color: '#333' },
   tokenItem: { flexDirection: 'row', justifyContent: 'space-between', backgroundColor: '#fff', padding: 15, borderRadius: 12, marginBottom: 10, elevation: 1 },
-  tokenMint: { fontSize: 14, color: '#666' },
+  tokenSymbol: { fontSize: 16, fontWeight: 'bold', color: '#333' },
+  tokenMint: { fontSize: 12, color: '#999' },
   tokenBalance: { fontSize: 16, fontWeight: 'bold' },
   addBtn: { alignItems: 'center', padding: 10, marginBottom: 20 },
   addBtnText: { color: '#34c759', fontWeight: 'bold' },
@@ -206,5 +250,7 @@ const styles = StyleSheet.create({
   mnemonicBox: { backgroundColor: '#f8f9fa', padding: 20, borderRadius: 15, marginBottom: 25, borderWidth: 1, borderColor: '#eee' },
   mnemonicText: { fontSize: 17, color: '#333', lineHeight: 26, textAlign: 'center', fontWeight: '500' },
   input: { borderWidth: 1, borderColor: '#ddd', borderRadius: 12, padding: 15, marginBottom: 25, fontSize: 16 },
+  qrContainer: { alignItems: 'center', marginVertical: 20, padding: 20, backgroundColor: '#fff', borderRadius: 20, elevation: 5 },
+  qrAddressText: { fontSize: 12, color: '#666', textAlign: 'center', marginBottom: 20, fontFamily: 'monospace' },
   cancelBtn: { alignItems: 'center', marginTop: 20, padding: 10 }
 });

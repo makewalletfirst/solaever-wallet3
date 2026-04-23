@@ -1,108 +1,82 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, TextInput, Alert, ScrollView } from 'react-native';
-import { StackNavigationProp } from '@react-navigation/stack';
 import * as bip39 from 'bip39';
-import { saveMnemonic } from '../lib/keystore';
+import { keypairFromMnemonic } from '../lib/wallet';
+import { saveWallet } from '../lib/keystore';
 
-type RootStackParamList = {
-  Welcome: undefined;
-  CreateWallet: undefined;
-  RestoreWallet: undefined;
-  Home: { mnemonic: string };
-};
-
-type RestoreWalletScreenNavigationProp = StackNavigationProp<RootStackParamList, 'RestoreWallet'>;
-
-interface Props {
-  navigation: RestoreWalletScreenNavigationProp;
-}
-
-export default function RestoreWallet({ navigation }: Props) {
+export default function RestoreWallet({ navigation }: any) {
   const [mnemonic, setMnemonic] = useState('');
+  const [walletName, setWalletName] = useState('');
 
   const handleRestore = async () => {
-    const trimmedMnemonic = mnemonic.trim().toLowerCase();
-    
-    if (!bip39.validateMnemonic(trimmedMnemonic)) {
-      Alert.alert('Invalid Mnemonic', 'Please check the words and try again.');
+    if (!walletName.trim()) {
+      Alert.alert('Error', '지갑 이름을 입력해 주세요.');
+      return;
+    }
+    if (!bip39.validateMnemonic(mnemonic.trim())) {
+      Alert.alert('Error', '유효하지 않은 니모닉 코드입니다.');
       return;
     }
 
     try {
-      await saveMnemonic(trimmedMnemonic);
-      navigation.replace('Home', { mnemonic: trimmedMnemonic });
-    } catch (error) {
-      Alert.alert('Error', 'Failed to save wallet securely.');
+      const keypair = await keypairFromMnemonic(mnemonic.trim());
+      const address = keypair.publicKey.toBase58();
+
+      await saveWallet({
+        name: walletName,
+        mnemonic: mnemonic.trim(),
+        address: address
+      });
+
+      Alert.alert('Success', '지갑이 복구되었습니다.', [
+        { text: '확인', onPress: () => navigation.replace('Home', { mnemonic: mnemonic.trim() }) }
+      ]);
+    } catch (e) {
+      Alert.alert('Error', '지갑 복구 중 오류가 발생했습니다.');
     }
   };
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
+    <ScrollView style={styles.container}>
       <Text style={styles.title}>Restore Wallet</Text>
-      <Text style={styles.description}>
-        Enter your 12-word recovery phrase. Separate words with spaces.
-      </Text>
       
-      <TextInput
-        style={styles.input}
-        placeholder="word1 word2 word3..."
-        multiline
-        numberOfLines={4}
-        onChangeText={setMnemonic}
-        value={mnemonic}
-        autoCapitalize="none"
-        autoCorrect={false}
+      <Text style={styles.label}>지갑 이름 설정</Text>
+      <TextInput 
+        style={styles.input} 
+        placeholder="예: My Old Wallet" 
+        value={walletName} 
+        onChangeText={setWalletName}
       />
-      
-      <TouchableOpacity 
-        style={styles.button}
-        onPress={handleRestore}
-      >
-        <Text style={styles.buttonText}>Restore Wallet</Text>
+
+      <Text style={styles.label}>니모닉 코드 입력 (12 or 24 words)</Text>
+      <TextInput 
+        style={[styles.input, styles.textArea]} 
+        placeholder="word1 word2 ..." 
+        multiline 
+        numberOfLines={4}
+        value={mnemonic} 
+        onChangeText={setMnemonic}
+        autoCapitalize="none"
+      />
+
+      <TouchableOpacity style={styles.button} onPress={handleRestore}>
+        <Text style={styles.buttonText}>Restore Now</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity style={styles.cancelBtn} onPress={() => navigation.goBack()}>
+        <Text>Cancel</Text>
       </TouchableOpacity>
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    padding: 20,
-    backgroundColor: '#fff',
-    flexGrow: 1,
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    marginVertical: 20,
-    textAlign: 'center',
-  },
-  description: {
-    fontSize: 16,
-    color: '#666',
-    textAlign: 'center',
-    marginBottom: 30,
-    lineHeight: 22,
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: '#dee2e6',
-    borderRadius: 10,
-    padding: 15,
-    fontSize: 18,
-    backgroundColor: '#f8f9fa',
-    height: 150,
-    textAlignVertical: 'top',
-    marginBottom: 30,
-  },
-  button: {
-    backgroundColor: '#34c759',
-    paddingVertical: 15,
-    borderRadius: 10,
-    alignItems: 'center',
-  },
-  buttonText: {
-    color: '#fff',
-    fontSize: 18,
-    fontWeight: '600',
-  },
+  container: { flex: 1, padding: 25, backgroundColor: '#fff' },
+  title: { fontSize: 28, fontWeight: 'bold', marginTop: 50, marginBottom: 30, textAlign: 'center' },
+  label: { fontSize: 16, color: '#666', marginBottom: 10, fontWeight: 'bold' },
+  input: { borderWidth: 1, borderColor: '#ddd', borderRadius: 12, padding: 15, marginBottom: 25, fontSize: 16 },
+  textArea: { height: 120, textAlignVertical: 'top' },
+  button: { backgroundColor: '#34c759', padding: 18, borderRadius: 15, alignItems: 'center' },
+  buttonText: { color: '#fff', fontSize: 18, fontWeight: 'bold' },
+  cancelBtn: { alignItems: 'center', marginTop: 20, padding: 10 }
 });

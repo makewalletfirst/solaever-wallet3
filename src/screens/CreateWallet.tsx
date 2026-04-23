@@ -1,129 +1,91 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert } from 'react-native';
-import { StackNavigationProp } from '@react-navigation/stack';
-import { generateMnemonic } from '../lib/wallet';
-import { saveMnemonic } from '../lib/keystore';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, TextInput, Alert, ScrollView } from 'react-native';
+import * as bip39 from 'bip39';
+import { keypairFromMnemonic } from '../lib/wallet';
+import { saveWallet } from '../lib/keystore';
 
-type RootStackParamList = {
-  Welcome: undefined;
-  CreateWallet: undefined;
-  RestoreWallet: undefined;
-  Home: { mnemonic: string };
-};
-
-type CreateWalletScreenNavigationProp = StackNavigationProp<RootStackParamList, 'CreateWallet'>;
-
-interface Props {
-  navigation: CreateWalletScreenNavigationProp;
-}
-
-export default function CreateWallet({ navigation }: Props) {
+export default function CreateWallet({ navigation }: any) {
   const [mnemonic, setMnemonic] = useState('');
+  const [walletName, setWalletName] = useState('');
+  const [step, setStep] = useState(1);
 
-  useEffect(() => {
-    setMnemonic(generateMnemonic());
-  }, []);
+  const generateNewWallet = () => {
+    if (!walletName.trim()) {
+      Alert.alert('Error', '지갑 이름을 입력해 주세요.');
+      return;
+    }
+    const mn = bip39.generateMnemonic();
+    setMnemonic(mn);
+    setStep(2);
+  };
 
-  const handleComplete = async () => {
+  const completeCreation = async () => {
     try {
-      await saveMnemonic(mnemonic);
-      navigation.replace('Home', { mnemonic });
-    } catch (error) {
-      Alert.alert('Error', 'Failed to save wallet securely.');
+      const keypair = await keypairFromMnemonic(mnemonic);
+      const address = keypair.publicKey.toBase58();
+      
+      await saveWallet({
+        name: walletName,
+        mnemonic: mnemonic,
+        address: address
+      });
+
+      Alert.alert('Success', '지갑이 생성되었습니다.', [
+        { text: '확인', onPress: () => navigation.replace('Home', { mnemonic }) }
+      ]);
+    } catch (e) {
+      Alert.alert('Error', '지갑 저장 중 오류가 발생했습니다.');
     }
   };
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
-      <Text style={styles.title}>Create New Wallet</Text>
-      <Text style={styles.description}>
-        Below is your recovery phrase. Write it down on paper and keep it safe. 
-        It is the ONLY way to recover your wallet if you lose your phone.
-      </Text>
+    <View style={styles.container}>
+      <Text style={styles.title}>Create Wallet</Text>
       
-      <View style={styles.mnemonicContainer}>
-        {mnemonic.split(' ').map((word, index) => (
-          <View key={index} style={styles.wordBox}>
-            <Text style={styles.wordNumber}>{index + 1}</Text>
-            <Text style={styles.wordText}>{word}</Text>
+      {step === 1 ? (
+        <View style={styles.stepContainer}>
+          <Text style={styles.label}>지갑 이름 설정</Text>
+          <TextInput 
+            style={styles.input} 
+            placeholder="예: My Main Wallet" 
+            value={walletName} 
+            onChangeText={setWalletName}
+          />
+          <TouchableOpacity style={styles.button} onPress={generateNewWallet}>
+            <Text style={styles.buttonText}>Generate Mnemonic</Text>
+          </TouchableOpacity>
+        </View>
+      ) : (
+        <ScrollView style={styles.stepContainer}>
+          <Text style={styles.warning}>
+            아래 니모닉 코드를 반드시 안전한 곳에 기록하세요. 
+            분실 시 지갑을 절대 복구할 수 없습니다.
+          </Text>
+          <View style={styles.mnemonicBox}>
+            <Text style={styles.mnemonicText}>{mnemonic}</Text>
           </View>
-        ))}
-      </View>
-      
-      <TouchableOpacity 
-        style={styles.button}
-        onPress={handleComplete}
-      >
-        <Text style={styles.buttonText}>I have saved the phrase</Text>
-      </TouchableOpacity>
-    </ScrollView>
+          <TouchableOpacity style={styles.button} onPress={completeCreation}>
+            <Text style={styles.buttonText}>I've backed it up</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.cancelBtn} onPress={() => setStep(1)}>
+            <Text>Back</Text>
+          </TouchableOpacity>
+        </ScrollView>
+      )}
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    padding: 20,
-    backgroundColor: '#fff',
-    alignItems: 'center',
-    flexGrow: 1,
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    marginVertical: 20,
-    textAlign: 'center',
-  },
-  description: {
-    fontSize: 16,
-    color: '#d32f2f',
-    textAlign: 'center',
-    marginBottom: 30,
-    lineHeight: 22,
-  },
-  mnemonicContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'center',
-    marginBottom: 40,
-    padding: 10,
-    backgroundColor: '#f8f9fa',
-    borderRadius: 15,
-    borderWidth: 1,
-    borderColor: '#dee2e6',
-  },
-  wordBox: {
-    width: '30%',
-    margin: '1.5%',
-    paddingVertical: 10,
-    backgroundColor: '#fff',
-    borderRadius: 8,
-    alignItems: 'center',
-    elevation: 1,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-  },
-  wordNumber: {
-    fontSize: 10,
-    color: '#adb5bd',
-  },
-  wordText: {
-    fontSize: 16,
-    fontWeight: '500',
-    color: '#212529',
-  },
-  button: {
-    backgroundColor: '#34c759',
-    paddingVertical: 15,
-    paddingHorizontal: 30,
-    borderRadius: 10,
-    width: '100%',
-    alignItems: 'center',
-  },
-  buttonText: {
-    color: '#fff',
-    fontSize: 18,
-    fontWeight: '600',
-  },
+  container: { flex: 1, padding: 25, backgroundColor: '#fff' },
+  title: { fontSize: 28, fontWeight: 'bold', marginTop: 50, marginBottom: 30, textAlign: 'center' },
+  stepContainer: { flex: 1 },
+  label: { fontSize: 16, color: '#666', marginBottom: 10, fontWeight: 'bold' },
+  input: { borderWidth: 1, borderColor: '#ddd', borderRadius: 12, padding: 15, marginBottom: 25, fontSize: 16 },
+  warning: { color: '#ff3b30', backgroundColor: '#fff2f2', padding: 15, borderRadius: 10, marginBottom: 20, lineHeight: 22, fontWeight: 'bold' },
+  mnemonicBox: { backgroundColor: '#f8f9fa', padding: 20, borderRadius: 15, marginBottom: 30, borderWidth: 1, borderColor: '#eee' },
+  mnemonicText: { fontSize: 18, color: '#333', textAlign: 'center', lineHeight: 28, fontWeight: '500' },
+  button: { backgroundColor: '#34c759', padding: 18, borderRadius: 15, alignItems: 'center' },
+  buttonText: { color: '#fff', fontSize: 18, fontWeight: 'bold' },
+  cancelBtn: { alignItems: 'center', marginTop: 20, padding: 10 }
 });

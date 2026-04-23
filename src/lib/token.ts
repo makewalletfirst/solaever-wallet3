@@ -10,6 +10,16 @@ import {
 } from '@solana/spl-token';
 import { connection } from './connection';
 
+const COMMON_TOKENS: Record<string, { symbol: string, name: string }> = {
+  "Es9vMFrzaDCSTMdUi9CcZ6SSTm82WWSXn8tWNRU3mgtf": { symbol: "USDT", name: "Tether USD" },
+  "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v": { symbol: "USDC", name: "USD Coin" },
+  "So11111111111111111111111111111111111111112": { symbol: "wSOL", name: "Wrapped Solana" }
+};
+
+export function getTokenInfo(mint: string) {
+  return COMMON_TOKENS[mint] || { symbol: "TOKEN", name: "Unknown Token" };
+}
+
 export async function getTokenBalance(mintAddress: string, ownerAddress: string): Promise<number> {
   try {
     const mint = new PublicKey(mintAddress);
