@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, RefreshControl, ActivityIndicator, Modal, Linking, Clipboard, Alert } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, RefreshControl, ActivityIndicator, Modal, Clipboard, Alert } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as WebBrowser from 'expo-web-browser';
 import { connection } from '../lib/connection';
 import { PublicKey } from '@solana/web3.js';
 
@@ -55,7 +56,7 @@ export default function TxHistoryScreen({ navigation, route }: any) {
   };
 
   const openExplorer = (sig: string) => {
-    Linking.openURL(`https://explorer.solana.com/tx/${sig}?cluster=mainnet-beta`);
+    WebBrowser.openBrowserAsync(`https://explorer.solana.com/tx/${sig}?cluster=mainnet-beta`);
   };
 
   const renderItem = ({ item }: any) => {

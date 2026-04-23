@@ -4,7 +4,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { keypairFromMnemonic } from '../lib/wallet';
 import { sendSLE } from '../lib/transfer';
-import { sendSPLToken } from '../lib/token';
+import { sendSPLToken, getTokenInfo } from '../lib/token';
 
 export default function SendScreen({ navigation, route }: any) {
   const { mnemonic, tokenList } = route.params;
@@ -37,11 +37,16 @@ export default function SendScreen({ navigation, route }: any) {
       const saved = await AsyncStorage.getItem(key);
       const history = saved ? JSON.parse(saved) : [];
       
+      let assetName = 'SLE';
+      if (selectedAsset !== 'SLE') {
+        assetName = getTokenInfo(selectedAsset).symbol;
+      }
+
       const newTx = {
         signature,
         blockTime: Math.floor(Date.now() / 1000),
         err: null,
-        memo: `Sent ${amount} ${selectedAsset === 'SLE' ? 'SLE' : 'TOKEN'}`,
+        memo: `Sent ${amount} ${assetName}`,
         isLocal: true
       };
 
@@ -90,11 +95,18 @@ export default function SendScreen({ navigation, route }: any) {
         >
           <Text style={selectedAsset === 'SLE' ? styles.selectedText : {}}>SLE (Native)</Text>
         </TouchableOpacity>
-        {tokenList.map((mint: string) => (
-          <TouchableOpacity key={mint} style={[styles.assetOption, selectedAsset === mint && styles.selectedAsset]} onPress={() => setSelectedAsset(mint)}>
-            <Text style={selectedAsset === mint ? styles.selectedText : {}} numberOfLines={1}>{mint.slice(0, 6)}...</Text>
-          </TouchableOpacity>
-        ))}
+        {tokenList.map((mint: string) => {
+          const info = getTokenInfo(mint);
+          return (
+            <TouchableOpacity 
+              key={mint} 
+              style={[styles.assetOption, selectedAsset === mint && styles.selectedAsset]} 
+              onPress={() => setSelectedAsset(mint)}
+            >
+              <Text style={selectedAsset === mint ? styles.selectedText : {}} numberOfLines={1}>{info.symbol} (SPL)</Text>
+            </TouchableOpacity>
+          );
+        })}
       </View>
 
       <View style={styles.inputGroup}>

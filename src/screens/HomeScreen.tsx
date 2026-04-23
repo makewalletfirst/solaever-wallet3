@@ -21,6 +21,7 @@ export default function HomeScreen({ navigation, route }: any) {
   const [isAddTokenModalVisible, setAddTokenModalVisible] = useState(false);
   const [isMnemonicVisible, setMnemonicVisible] = useState(false);
   const [isReceiveModalVisible, setReceiveModalVisible] = useState(false);
+  const [selectedToken, setSelectedToken] = useState<any>(null);
   const [newTokenMint, setNewTokenMint] = useState('');
 
   const loadSavedTokens = async (ownerAddr: string) => {
@@ -67,6 +68,10 @@ export default function HomeScreen({ navigation, route }: any) {
   const handleLogout = async () => {
     await setCurrentWallet(null);
     navigation.replace('Welcome');
+  };
+
+  const openTokenExplorer = (mint: string) => {
+    WebBrowser.openBrowserAsync(`https://explorer.solana.com/address/${mint}?cluster=mainnet-beta`);
   };
 
   const onRefresh = async () => {
@@ -123,17 +128,21 @@ export default function HomeScreen({ navigation, route }: any) {
         </View>
       </View>
 
-      <Text style={styles.sectionTitle}>My Assets</Text>
+      <Text style={styles.sectionTitle}>My Tokens</Text>
       {tokens.map((item, index) => {
         const info = getTokenInfo(item.mint);
         return (
-          <View key={index} style={styles.tokenItem}>
+          <TouchableOpacity 
+            key={index} 
+            style={styles.tokenItem}
+            onPress={() => setSelectedToken({...item, ...info})}
+          >
             <View>
               <Text style={styles.tokenSymbol}>{info.symbol}</Text>
               <Text style={styles.tokenMint}>{item.mint.slice(0, 4)}...{item.mint.slice(-4)}</Text>
             </View>
             <Text style={styles.tokenBalance}>{item.balance.toLocaleString()} {info.symbol}</Text>
-          </View>
+          </TouchableOpacity>
         );
       })}
 
@@ -163,6 +172,42 @@ export default function HomeScreen({ navigation, route }: any) {
               <Text style={styles.actionButtonText}>Copy Address</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.cancelBtn} onPress={() => setReceiveModalVisible(false)}>
+              <Text>Close</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Token Detail Modal */}
+      <Modal visible={!!selectedToken} transparent animationType="slide">
+        <View style={styles.modalBg}>
+          <View style={[styles.modalContent, { minHeight: 300 }]}>
+            <Text style={styles.modalTitle}>Token Detail</Text>
+            <View style={styles.detailRow}>
+              <Text style={styles.detailLabel}>Name</Text>
+              <Text style={styles.detailValue}>{selectedToken?.name}</Text>
+            </View>
+            <View style={styles.detailRow}>
+              <Text style={styles.detailLabel}>Symbol</Text>
+              <Text style={styles.detailValue}>{selectedToken?.symbol}</Text>
+            </View>
+            <View style={styles.detailRow}>
+              <Text style={styles.detailLabel}>Mint Address</Text>
+              <Text style={[styles.detailValue, { fontSize: 12, fontFamily: 'monospace' }]}>{selectedToken?.mint}</Text>
+            </View>
+            <View style={styles.detailRow}>
+              <Text style={styles.detailLabel}>Balance</Text>
+              <Text style={[styles.detailValue, { fontWeight: 'bold', fontSize: 18 }]}>{selectedToken?.balance?.toLocaleString()} {selectedToken?.symbol}</Text>
+            </View>
+            
+            <TouchableOpacity 
+              style={styles.actionButton} 
+              onPress={() => openTokenExplorer(selectedToken.mint)}
+            >
+              <Text style={styles.actionButtonText}>View on Explorer</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity style={styles.cancelBtn} onPress={() => setSelectedToken(null)}>
               <Text>Close</Text>
             </TouchableOpacity>
           </View>
@@ -252,5 +297,8 @@ const styles = StyleSheet.create({
   input: { borderWidth: 1, borderColor: '#ddd', borderRadius: 12, padding: 15, marginBottom: 25, fontSize: 16 },
   qrContainer: { alignItems: 'center', marginVertical: 20, padding: 20, backgroundColor: '#fff', borderRadius: 20, elevation: 5 },
   qrAddressText: { fontSize: 12, color: '#666', textAlign: 'center', marginBottom: 20, fontFamily: 'monospace' },
-  cancelBtn: { alignItems: 'center', marginTop: 20, padding: 10 }
+  cancelBtn: { alignItems: 'center', marginTop: 20, padding: 10 },
+  detailRow: { marginBottom: 15 },
+  detailLabel: { fontSize: 12, color: '#999', marginBottom: 2 },
+  detailValue: { fontSize: 14, color: '#333' }
 });

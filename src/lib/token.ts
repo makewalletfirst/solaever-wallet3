@@ -13,7 +13,9 @@ import { connection } from './connection';
 const COMMON_TOKENS: Record<string, { symbol: string, name: string }> = {
   "Es9vMFrzaDCSTMdUi9CcZ6SSTm82WWSXn8tWNRU3mgtf": { symbol: "USDT", name: "Tether USD" },
   "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v": { symbol: "USDC", name: "USD Coin" },
-  "So11111111111111111111111111111111111111112": { symbol: "wSOL", name: "Wrapped Solana" }
+  "So11111111111111111111111111111111111111112": { symbol: "wSOL", name: "Wrapped Solana" },
+  "8EFM5gy5oFK6A3rPpDPSBAsmgPAXDMdeHvRENvDPArZR": { symbol: "SLE-T", name: "SolaEver Token" },
+  "3cxHQomt8DarqKFiwvDJbmAreBXd4pYo4h6LanB2xk6u": { symbol: "sBEC", name: "sBEC Token" }
 };
 
 export function getTokenInfo(mint: string) {

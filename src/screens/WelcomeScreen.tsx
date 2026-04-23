@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert, ActivityIndicator } from 'react-native';
 import { StackNavigationProp } from '@react-navigation/stack';
+import * as LocalAuthentication from 'expo-local-authentication';
 import { loadWallets, setCurrentWallet, deleteWallet, WalletInfo } from '../lib/keystore';
 
 type RootStackParamList = {
@@ -34,12 +35,40 @@ export default function WelcomeScreen({ navigation }: Props) {
     return unsubscribe;
   }, [navigation]);
 
-  const handleSelectWallet = async (wallet: WalletInfo) => {
-    await setCurrentWallet(wallet.address);
-    navigation.replace('Home', { mnemonic: wallet.mnemonic });
+  const authenticate = async (reason: string): Promise<boolean> => {
+    try {
+      const hasHardware = await LocalAuthentication.hasHardwareAsync();
+      const isEnrolled = await LocalAuthentication.isEnrolledAsync();
+
+      if (!hasHardware || !isEnrolled) return true;
+
+      const result = await LocalAuthentication.authenticateAsync({
+        promptMessage: reason,
+        fallbackLabel: '비밀번호 사용',
+      });
+      return result.success;
+    } catch (e) {
+      return false;
+    }
   };
 
-  const handleDeleteWallet = (wallet: WalletInfo) => {
+  const handleSelectWallet = async (wallet: WalletInfo) => {
+    const success = await authenticate(`${wallet.name} 지갑 접속 인증`);
+    if (success) {
+      await setCurrentWallet(wallet.address);
+      navigation.replace('Home', { mnemonic: wallet.mnemonic });
+    } else {
+      Alert.alert('인증 실패', '지갑에 접속할 수 없습니다.');
+    }
+  };
+
+  const handleDeleteWallet = async (wallet: WalletInfo) => {
+    const success = await authenticate(`${wallet.name} 지갑 삭제 인증`);
+    if (!success) {
+      Alert.alert('인증 실패', '인증이 완료되지 않아 삭제할 수 없습니다.');
+      return;
+    }
+
     Alert.alert(
       '지갑 삭제',
       `'${wallet.name}' 지갑을 목록에서 삭제하시겠습니까? 니모닉을 따로 보관하지 않았다면 복구할 수 없습니다.`,
