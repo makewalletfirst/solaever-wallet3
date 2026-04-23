@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, TextInput, Alert, ActivityIndicator, ScrollView } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { keypairFromMnemonic } from '../lib/wallet';
 import { sendSLE } from '../lib/transfer';
 import { sendSPLToken } from '../lib/token';
@@ -9,7 +10,26 @@ export default function SendScreen({ navigation, route }: any) {
   const [toAddress, setToAddress] = useState('');
   const [amount, setAmount] = useState('');
   const [loading, setLoading] = useState(false);
-  const [selectedAsset, setSelectedAsset] = useState('SLE'); // 'SLE' 또는 민트 주소
+  const [selectedAsset, setSelectedAsset] = useState('SLE');
+
+  // 전송 성공 시 로컬에 히스토리 즉시 기록
+  const saveTxLocally = async (signature: string, addr: string) => {
+    try {
+      const key = `history_v2_${addr}`;
+      const saved = await AsyncStorage.getItem(key);
+      const history = saved ? JSON.parse(saved) : [];
+      
+      const newTx = {
+        signature,
+        blockTime: Math.floor(Date.now() / 1000),
+        err: null,
+        memo: `Sent ${amount} ${selectedAsset === 'SLE' ? 'SLE' : 'TOKEN'}`,
+        isLocal: true // 앱에서 직접 발생시킨 표시
+      };
+
+      await AsyncStorage.setItem(key, JSON.stringify([newTx, ...history].slice(0, 50)));
+    } catch (e) { console.error("Local save failed", e); }
+  };
 
   const handleSend = async () => {
     if (!toAddress || !amount) {
@@ -28,6 +48,9 @@ export default function SendScreen({ navigation, route }: any) {
         signature = await sendSPLToken(senderKeypair, selectedAsset, toAddress, parseFloat(amount));
       }
       
+      // 즉시 로컬 저장 실행
+      await saveTxLocally(signature, senderKeypair.publicKey.toBase58());
+
       Alert.alert('전송 성공', `트랜잭션이 완료되었습니다!\n\n서명: ${signature.slice(0, 15)}...`, [
         { text: '확인', onPress: () => navigation.goBack() }
       ]);
@@ -41,7 +64,6 @@ export default function SendScreen({ navigation, route }: any) {
   return (
     <ScrollView style={styles.container}>
       <Text style={styles.title}>Send Assets</Text>
-      
       <Text style={styles.label}>Select Asset</Text>
       <View style={styles.assetSelector}>
         <TouchableOpacity 
@@ -51,35 +73,23 @@ export default function SendScreen({ navigation, route }: any) {
           <Text style={selectedAsset === 'SLE' ? styles.selectedText : {}}>SLE (Native)</Text>
         </TouchableOpacity>
         {tokenList.map((mint: string) => (
-          <TouchableOpacity 
-            key={mint}
-            style={[styles.assetOption, selectedAsset === mint && styles.selectedAsset]} 
-            onPress={() => setSelectedAsset(mint)}
-          >
-            <Text style={selectedAsset === mint ? styles.selectedText : {}} numberOfLines={1}>
-              {mint.slice(0, 6)}... (SPL)
-            </Text>
+          <TouchableOpacity key={mint} style={[styles.assetOption, selectedAsset === mint && styles.selectedAsset]} onPress={() => setSelectedAsset(mint)}>
+            <Text style={selectedAsset === mint ? styles.selectedText : {}} numberOfLines={1}>{mint.slice(0, 6)}... (SPL)</Text>
           </TouchableOpacity>
         ))}
       </View>
-
       <View style={styles.inputGroup}>
         <Text style={styles.label}>Recipient Address</Text>
         <TextInput style={styles.input} placeholder="Recipient Solana Address" value={toAddress} onChangeText={setToAddress} autoCapitalize="none" />
       </View>
-
       <View style={styles.inputGroup}>
         <Text style={styles.label}>Amount</Text>
         <TextInput style={styles.input} placeholder="0.00" value={amount} onChangeText={setAmount} keyboardType="numeric" />
       </View>
-
       <TouchableOpacity style={[styles.button, loading && styles.disabled]} onPress={handleSend} disabled={loading}>
         {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>Send Now</Text>}
       </TouchableOpacity>
-      
-      <TouchableOpacity style={styles.cancelButton} onPress={() => navigation.goBack()} disabled={loading}>
-        <Text>Cancel</Text>
-      </TouchableOpacity>
+      <TouchableOpacity style={styles.cancelButton} onPress={() => navigation.goBack()} disabled={loading}><Text>Cancel</Text></TouchableOpacity>
     </ScrollView>
   );
 }
