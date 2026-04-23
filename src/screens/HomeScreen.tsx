@@ -6,8 +6,8 @@ import { keypairFromMnemonic } from '../lib/wallet';
 import { getBalance } from '../lib/transfer';
 import { getTokenBalance } from '../lib/token';
 
-// 앱 로고와 동일한 이미지를 사용
-const SOLAEVER_MAIN_LOGO = require('../../assets/icon.png');
+// 이미지 자산 정의
+const TOKEN_LOGO = require('../../assets/solaever_token.png');
 
 export default function HomeScreen({ navigation, route }: any) {
   const { mnemonic } = route.params;
@@ -64,7 +64,11 @@ export default function HomeScreen({ navigation, route }: any) {
     >
       <View style={styles.header}>
         <View style={styles.headerLeft}>
-          <Text style={styles.title}>SolaEver</Text>
+          <View style={styles.titleContainer}>
+            <Text style={styles.title}>SolaEver</Text>
+            {/* [검증용] 제목 오른쪽 로고 배치 */}
+            <Image source={TOKEN_LOGO} style={styles.headerLogo} resizeMode="contain" />
+          </View>
         </View>
         <View style={styles.headerRight}>
           <TouchableOpacity onPress={() => setMnemonicVisible(true)} style={styles.mnemonicBtn}>
@@ -79,13 +83,12 @@ export default function HomeScreen({ navigation, route }: any) {
       <View style={styles.card}>
         <Text style={styles.label}>NATIVE BALANCE</Text>
         <View style={styles.balanceRow}>
-          <View style={styles.tokenLogoContainer}>
-            <Image 
-              source={SOLAEVER_MAIN_LOGO} 
-              style={styles.tokenLogo}
-              resizeMode="contain"
-            />
-          </View>
+          {/* 하얀색 배경 박스를 제거하고 이미지만 직접 띄움 */}
+          <Image 
+            source={TOKEN_LOGO} 
+            style={styles.cardTokenLogo}
+            resizeMode="contain"
+          />
           <Text style={styles.balance}>{balance !== null ? `${balance.toLocaleString()} SLE` : '---'}</Text>
         </View>
         <View style={styles.addressRow}>
@@ -162,16 +165,17 @@ const styles = StyleSheet.create({
   container: { padding: 20, backgroundColor: '#f8f9fa', flexGrow: 1 },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 40, marginBottom: 20 },
   headerLeft: { flex: 1 },
+  titleContainer: { flexDirection: 'row', alignItems: 'center' },
+  title: { fontSize: 24, fontWeight: 'bold', marginRight: 8 },
+  headerLogo: { width: 24, height: 24 },
   headerRight: { flexDirection: 'row', alignItems: 'center' },
-  title: { fontSize: 24, fontWeight: 'bold' },
   logoutText: { color: '#ff3b30', marginLeft: 15 },
   mnemonicBtn: { backgroundColor: '#e8f5e9', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 5 },
   mnemonicBtnText: { color: '#34c759', fontSize: 12, fontWeight: 'bold' },
   card: { backgroundColor: '#34c759', borderRadius: 20, padding: 25, marginBottom: 30, elevation: 5 },
   label: { fontSize: 12, color: 'rgba(255,255,255,0.7)', marginBottom: 15 },
   balanceRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 20 },
-  tokenLogoContainer: { width: 44, height: 44, borderRadius: 22, backgroundColor: '#fff', justifyContent: 'center', alignItems: 'center', marginRight: 12, overflow: 'hidden' },
-  tokenLogo: { width: 32, height: 32 },
+  cardTokenLogo: { width: 32, height: 32, marginRight: 12 },
   balance: { fontSize: 32, fontWeight: 'bold', color: '#fff' },
   addressRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.2)', paddingTop: 15 },
   address: { flex: 1, fontSize: 12, color: 'rgba(255,255,255,0.8)', fontFamily: 'monospace', marginRight: 10 },
