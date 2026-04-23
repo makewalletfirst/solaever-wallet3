@@ -42,13 +42,22 @@ export default function SendScreen({ navigation, route }: Props) {
       const signature = await sendSLE(senderKeypair, toAddress, numAmount);
       
       Alert.alert(
-        'Success', 
-        `Transaction sent successfully!\n\nSignature: ${signature.slice(0, 10)}...`,
-        [{ text: 'OK', onPress: () => navigation.goBack() }]
+        '전송 성공', 
+        `트랜잭션이 성공적으로 전송되었습니다!\n\n서명: ${signature.slice(0, 15)}...`,
+        [{ text: '확인', onPress: () => navigation.goBack() }]
       );
     } catch (error: any) {
       console.error(error);
-      Alert.alert('Transaction Failed', error.message || 'Unknown error occurred');
+      let errorMsg = error.message || '알 수 없는 오류가 발생했습니다.';
+      
+      // 사용자 친화적 메시지 변환
+      if (errorMsg.includes('insufficient funds') || errorMsg.includes('0x1')) {
+        errorMsg = '잔고가 부족합니다. 수수료를 제외한 금액을 입력해 주세요.';
+      } else if (errorMsg.includes('block height exceeded') || errorMsg.includes('expired')) {
+        errorMsg = '네트워크 응답 시간이 초과되었습니다. 잠시 후 다시 시도해 주세요.';
+      }
+      
+      Alert.alert('전송 실패', errorMsg);
     } finally {
       setLoading(false);
     }
