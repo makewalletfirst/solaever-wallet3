@@ -4,4 +4,5 @@
     <color name="colorPrimaryDark">#2DA94F</color>
     <color name="colorAccent">#34C759</color>
     <color name="splashscreen_background">#FFFFFF</color>
+    <color name="iconBackground">#FFFFFF</color>
 </resources>
